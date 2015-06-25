@@ -1,0 +1,39 @@
+{
+  "name": "vertebrate",
+  "version": "1.0.0",
+  "description": "Inspired by Backbone, crafted in ES6.",
+  "main": "vertebrate.es5.js",
+  "files": [
+    "vertebrate.js",
+    "vertebrate.es5.js"
+  ],
+  "scripts": {
+    "prepublish": "babel vertebrate.js --out-file vertebrate.es5.js",
+    "postpublish": "rimraf vertebrate.es5.js",
+    "test": "mocha --compilers js:babel/register",
+    "lint": "eslint ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:qubyte/vertebrate.git"
+  },
+  "keywords": [
+    "mvc",
+    "backbone",
+    "es6"
+  ],
+  "author": "Mark S. Everitt",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/qubyte/vertebrate/issues"
+  },
+  "homepage": "https://github.com/qubyte/vertebrate",
+  "devDependencies": {
+    "babel": "5.6.5",
+    "babel-eslint": "3.1.18",
+    "eslint": "0.23.0",
+    "mocha": "2.2.5",
+    "rimraf": "2.4.0",
+    "sinon": "1.15.3"
+  }
+}
