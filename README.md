@@ -82,8 +82,8 @@ function logOnce(message) {
 
 emitter.on('message', logOnce);
 
-emitter.emit('hello, world'); // logs
-emitter.emit('oh noes! :(');  // does't log
+emitter.emit('message', 'hello, world'); // logs
+emitter.emit('message', 'oh noes! :(');  // does't log
 ```
 
 and doing so keeps the implementation of `removeListener` and the storage of events simple.
