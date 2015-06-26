@@ -1,6 +1,6 @@
 {
   "name": "vertebrate",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Inspired by Backbone, crafted in ES6.",
   "main": "vertebrate.es5.js",
   "files": [
