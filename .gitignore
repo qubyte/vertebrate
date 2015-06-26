@@ -27,4 +27,4 @@ build/Release
 node_modules
 
 # Build artifacts
-vertibrate.es5.js
+vertebrate.es5.js
