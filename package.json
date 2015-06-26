@@ -29,7 +29,7 @@
   },
   "homepage": "https://github.com/qubyte/vertebrate",
   "devDependencies": {
-    "babel": "5.6.5",
+    "babel": "5.6.10",
     "babel-eslint": "3.1.18",
     "eslint": "0.23.0",
     "mocha": "2.2.5",
