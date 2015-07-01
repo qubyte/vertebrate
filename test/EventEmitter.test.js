@@ -1,13 +1,11 @@
-import {EventEmitter} from './vertebrate.js';
+import {EventEmitter} from '../vertebrate.js';
 import assert from 'assert';
 import sinon from 'sinon';
 
 describe('EventEmitter', () => {
-  var sandbox = sinon.sandbox.create();
+  let sandbox = sinon.sandbox.create();
 
-  afterEach(() => {
-    sandbox.restore();
-  });
+  afterEach(() => sandbox.restore());
 
   describe('class', () => {
     it('is a function', () => {
@@ -23,7 +21,7 @@ describe('EventEmitter', () => {
     });
 
     it('has a writable, configurable, non-enumerable "on" instance method', () => {
-        var descriptor = Object.getOwnPropertyDescriptor(EventEmitter.prototype, 'on');
+        let descriptor = Object.getOwnPropertyDescriptor(EventEmitter.prototype, 'on');
 
         assert.equal(typeof descriptor.value, 'function');
         assert.ok(descriptor.writable);
@@ -32,16 +30,16 @@ describe('EventEmitter', () => {
     });
   });
 
-  describe('instances', () => {
-    var eventEmitter;
-    var testHandler;
+  describe('instance', () => {
+    let eventEmitter;
+    let testHandler;
 
     beforeEach(() => {
         eventEmitter = new EventEmitter();
         testHandler = sandbox.stub();
     });
 
-    it('are instances of EventEmitter', () => {
+    it('is instance of EventEmitter', () => {
         assert.ok(eventEmitter instanceof EventEmitter);
     });
 
@@ -176,9 +174,9 @@ describe('EventEmitter', () => {
     });
 
     describe('removeAllListeners', () => {
-      var testHandler1;
-      var testHandler2;
-      var testHandler3;
+      let testHandler1;
+      let testHandler2;
+      let testHandler3;
 
       beforeEach(() => {
         testHandler1 = sandbox.stub();
