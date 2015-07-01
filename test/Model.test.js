@@ -1,4 +1,4 @@
-import {EventEmitter, Model, Collection, setFetch} from '../vertebrate.js';
+import {EventEmitter, Model, Collection} from '../vertebrate.js';
 import assert from 'assert';
 import sinon from 'sinon';
 
@@ -21,7 +21,7 @@ describe('Model', () => {
 
     fakeFetch = sandbox.stub().returns(fetchDeferred.promise);
 
-    setFetch(fakeFetch);
+    global.fetch = fakeFetch;
   });
 
   afterEach(() => sandbox.restore());
