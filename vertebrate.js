@@ -1,10 +1,4 @@
-// Store a reference to fetch. The user can override it.
-
-let fetch;
-
-export function setFetch(altFetch) {
-  fetch = altFetch;
-}
+/* global fetch */
 
 // Utility functions start.
 
