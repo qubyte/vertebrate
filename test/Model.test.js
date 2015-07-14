@@ -1,15 +1,7 @@
 import {EventEmitter, Model, Collection} from '../vertebrate.js';
+import Deferred from './Deferred';
 import assert from 'assert';
 import sinon from 'sinon';
-
-class Deferred {
-  constructor() {
-    this.promise = new Promise((resolve, reject) => {
-      this.resolve = resolve;
-      this.reject = reject;
-    });
-  }
-}
 
 describe('Model', () => {
   let sandbox = sinon.sandbox.create();
@@ -48,25 +40,29 @@ describe('Model', () => {
         assert.ok(new Model() instanceof EventEmitter);
       });
 
+      it('has a string tag of "VertebrateModel"', () => {
+        assert.equal(Object.prototype.toString.call(new Model()), '[object VertebrateModel]');
+      });
+
       describe('constructor', () => {
         it('sets attributes passed to it', () => {
           let model = new Model({a: 1, b: 2, c: 3});
 
-          assert.equal(model.get('a'), 1);
-          assert.equal(model.get('b'), 2);
-          assert.equal(model.get('c'), 3);
+          assert.equal(model.getAttribute('a'), 1);
+          assert.equal(model.getAttribute('b'), 2);
+          assert.equal(model.getAttribute('c'), 3);
         });
 
         it('sets a string id passed to it', () => {
           let model = new Model({id: 'an-id'});
 
-          assert.equal(model.get('id'), 'an-id');
+          assert.equal(model.getAttribute('id'), 'an-id');
         });
 
         it('sets a positive integer id passed to it', () => {
           let model = new Model({id: 10});
 
-          assert.equal(model.get('id'), 10);
+          assert.equal(model.getAttribute('id'), 10);
         });
 
         it('throws when given a negative number id', () => {
@@ -99,23 +95,43 @@ describe('Model', () => {
         });
       });
 
-      describe('get', () => {
+      describe('getAttribute', () => {
         let model;
 
         beforeEach(() => {
           model = new Model({a: 1});
         });
 
-        it('gets the value when the property is', () => {
-          assert.equal(model.get('a'), 1);
+        it('gets the value when the property is set', () => {
+          assert.equal(model.getAttribute('a'), 1);
         });
 
         it('gets undefined when property not set', () => {
-          assert.equal(model.get('b'), undefined);
+          assert.equal(model.getAttribute('b'), undefined);
         });
       });
 
-      describe('set', () => {
+      describe('getAttributes', () => {
+        let model;
+
+        beforeEach(() => {
+          model = new Model({a: 1, b: 2, c: 3});
+        });
+
+        it('gets the value an object populated with the requested values', () => {
+          assert.deepEqual(model.getAttributes('a', 'b'), {a: 1, b: 2});
+        });
+
+        it('gets undefined when property not set', () => {
+          assert.deepEqual(model.getAttributes('d'), {d: undefined});
+        });
+
+        it('gets all attributes when no arguments are given', () => {
+          assert.deepEqual(model.getAttributes(), {a: 1, b: 2, c: 3});
+        });
+      });
+
+      describe('setAttributes', () => {
         let model;
 
         beforeEach(() => {
@@ -123,22 +139,22 @@ describe('Model', () => {
         });
 
         it('sets a value on the model', () => {
-          assert.equal(model.get('a'), undefined);
+          assert.equal(model.getAttribute('a'), undefined);
 
-          model.set('a', 1);
+          model.setAttributes({'a': 1});
 
-          assert.equal(model.get('a'), 1);
+          assert.equal(model.getAttribute('a'), 1);
         });
 
         it('resets a value on the model', () => {
-          model.set('a', 2);
-          model.set('a', 1);
+          model.setAttributes({'a': 2});
+          model.setAttributes({'a': 1});
 
-          assert.equal(model.get('a'), 1);
+          assert.equal(model.getAttribute('a'), 1);
         });
 
         it('returns the instance for chaining', () => {
-          assert.equal(model.set('a', 1), model);
+          assert.equal(model.setAttributes({'a': 1}), model);
         });
       });
 
@@ -153,26 +169,10 @@ describe('Model', () => {
           assert.equal(new Model({id: 1}).id, 1);
         });
 
-        it('can be set with the set method', () => {
-          model.id = 1;
+        it('can be set with the setAttributes method', () => {
+          model.setAttributes({id: 1});
 
-          assert.equal(new Model({id: 1}).id, 1);
-        });
-
-        it('can only be set once', () => {
-          model.id = 1;
-
-          assert.throws(
-            () => model.id = 2,
-            err => err instanceof Error,
-            'Cannot change the ID of a model.'
-          );
-        });
-
-        it('ignores resetting the ID to its current value', () => {
-          model.id = 1;
-
-          assert.doesNotThrow(() => model.id = 1);
+          assert.equal(model.id, 1);
         });
       });
 
@@ -201,9 +201,9 @@ describe('Model', () => {
 
         beforeEach(() => {
           model = new Model({a: 1, b: 2, c: 3});
-          model.set('b', 4);
-          model.set('c', 5);
-          model.set('c', 3);
+          model.setAttributes({'b': 4});
+          model.setAttributes({'c': 5});
+          model.setAttributes({'c': 3});
         });
 
         describe('with an attribute name', () => {
@@ -230,7 +230,7 @@ describe('Model', () => {
           });
 
           it('returns false when attributes changed, but were returned to their original state', () => {
-            model.set('b', 2);
+            model.setAttributes({'b': 2});
 
             assert.strictEqual(model.hasChanged(), false);
           });
@@ -243,9 +243,9 @@ describe('Model', () => {
         beforeEach(() => {
           model = new Model({a: 1, b: 2, c: 3});
 
-          model.set('b', 4);
-          model.set('a', undefined);
-          model.set('d', 5);
+          model.setAttributes({'b': 4});
+          model.setAttributes({'a': undefined});
+          model.setAttributes({'d': 5});
         });
 
         it('returns added, changed and removed fields', () => {
@@ -257,38 +257,22 @@ describe('Model', () => {
 
       describe('previous', () => {
         let model;
+        let attributes;
 
         beforeEach(() => {
           model = new Model({a: 1, b: 2});
-          model.set('b', 3);
+          model.setAttributes({'b': 3});
+          attributes = model.previous();
         });
 
-        describe('with an attribute name', () => {
-          it('returns the value of an unchanged attribute', () => {
-            assert.equal(model.previous('a'), 1);
-          });
-
-          it('returns the original value of a changed attribute', () => {
-            assert.equal(model.previous('a'), 1);
-          });
+        it('returns an object with original attributes', () => {
+          assert.equal(Object.keys(attributes).length, 2);
+          assert.equal(attributes.a, 1);
+          assert.equal(attributes.b, 2);
         });
 
-        describe('without an attribute name', () => {
-          let attributes;
-
-          beforeEach(() => {
-            attributes = model.previous();
-          });
-
-          it('returns an object with original attributes', () => {
-            assert.equal(Object.keys(attributes).length, 2);
-            assert.equal(attributes.a, 1);
-            assert.equal(attributes.b, 2);
-          });
-
-          it('returns a shallow copy each time it is called', () => {
-            assert.notEqual(model.previous(), attributes);
-          });
+        it('returns a shallow copy each time it is called', () => {
+          assert.notEqual(model.previous(), attributes);
         });
       });
 
@@ -367,6 +351,31 @@ describe('Model', () => {
         });
       });
 
+      describe('checkResponse', () => {
+        let checkResponse = Model.prototype.checkResponse;
+
+        it('throws when res.ok is falsy', () => {
+          let fakeRes = {
+            ok: false,
+            status: 987
+          };
+
+          assert.throws(
+            () => checkResponse(fakeRes),
+            err => err instanceof Error,
+            'Unexpected response code from server: 987'
+          );
+        });
+
+        it('returns the response when res.ok is truthy', () => {
+          let fakeRes = {
+            ok: true
+          };
+
+          assert.equal(checkResponse(fakeRes), fakeRes);
+        });
+      });
+
       describe('fetch', () => {
         let model;
 
@@ -419,9 +428,9 @@ describe('Model', () => {
 
           return model.fetch()
             .then(() => {
-              assert.equal(model.get('id'), 10);
-              assert.equal(model.get('a'), 2);
-              assert.equal(model.get('b'), 3);
+              assert.equal(model.getAttribute('id'), 10);
+              assert.equal(model.getAttribute('a'), 2);
+              assert.equal(model.getAttribute('b'), 3);
             });
         });
 
@@ -504,6 +513,19 @@ describe('Model', () => {
 
           beforeEach(() => {
             newModelNoCollection = new TestModel({a: 1, b: 2});
+            newModelNoCollection.setAttributes({c: 3});
+          });
+
+          it('resolves when there are no changes', () => {
+            return new TestModel({a: 1, b: 2}).save();
+          });
+
+          it('calls fetch when there are no changes and option "force" is true', () => {
+            () => {
+              return new TestModel({a: 1, b: 2}).save({force: true});
+            }();
+
+            assert.equal(fakeFetch.callCount, 1);
           });
 
           it('makes a post request with the urlRoot URL', () => {
@@ -516,7 +538,8 @@ describe('Model', () => {
               credentials: 'same-origin',
               body: {
                 a: 1,
-                b: 2
+                b: 2,
+                c: 3
               },
               headers: {
                 Accept: 'application/json',
@@ -538,20 +561,20 @@ describe('Model', () => {
               });
           });
 
-          it('Sets the previous attributes to the model attributes when the save began', () => {
+          it('sets the previous attributes to the model attributes when the save began', () => {
             let saving = newModelNoCollection.save();
 
-            newModelNoCollection.set('a', 3);
+            newModelNoCollection.setAttributes({'a': 3});
 
             fetchDeferred.resolve({ok: true, json: sandbox.stub()});
 
             return saving
               .then(() => {
-                assert.deepEqual(newModelNoCollection.previous(), {a: 1, b: 2});
+                assert.deepEqual(newModelNoCollection.previous(), {a: 1, b: 2, c: 3});
               });
           });
 
-          it('emits "sync" when the silent option is falsy', () => {
+          it('emits "sync"', () => {
             let saving = newModelNoCollection.save();
             let syncHandlerStub = sandbox.stub();
 
@@ -567,22 +590,6 @@ describe('Model', () => {
                 assert.ok(syncHandlerStub.calledWithExactly());
               });
           });
-
-          it('does not emit "sync" when the silent option is truthy', () => {
-            let saving = newModelNoCollection.save({silent: true});
-            let syncHandlerStub = sandbox.stub();
-
-            newModelNoCollection.on('sync', syncHandlerStub);
-
-            assert.equal(syncHandlerStub.callCount, 0);
-
-            fetchDeferred.resolve({ok: true, json: sandbox.stub()});
-
-            return saving
-              .then(() => {
-                assert.equal(syncHandlerStub.callCount, 0);
-              });
-          });
         });
 
         describe('new model with collection', () => {
@@ -590,6 +597,19 @@ describe('Model', () => {
 
           beforeEach(() => {
             newModelWithCollection = new Model({a: 1, b: 2}, {collection: new TestCollection()});
+            newModelWithCollection.setAttributes({c: 3});
+          });
+
+          it('resolves when there are no changes', () => {
+            return new Model({a: 1, b: 2}, {collection: new TestCollection()}).save();
+          });
+
+          it('calls fetch when there are no changes and option "force" is true', () => {
+            () => {
+              return new TestModel({a: 1, b: 2}, {collection: new TestCollection()}).save({force: true});
+            }();
+
+            assert.equal(fakeFetch.callCount, 1);
           });
 
           it('makes a post request with the collection URL', () => {
@@ -602,7 +622,8 @@ describe('Model', () => {
               credentials: 'same-origin',
               body: {
                 a: 1,
-                b: 2
+                b: 2,
+                c: 3
               },
               headers: {
                 Accept: 'application/json',
@@ -627,17 +648,17 @@ describe('Model', () => {
           it('Sets the previous attributes to the model attributes when the save began', () => {
             let saving = newModelWithCollection.save();
 
-            newModelWithCollection.set('a', 3);
+            newModelWithCollection.setAttributes({'a': 3});
 
             fetchDeferred.resolve({ok: true, json: sandbox.stub()});
 
             return saving
               .then(() => {
-                assert.deepEqual(newModelWithCollection.previous(), {a: 1, b: 2});
+                assert.deepEqual(newModelWithCollection.previous(), {a: 1, b: 2, c: 3});
               });
           });
 
-          it('emits "sync" when the silent option is falsy', () => {
+          it('emits "sync"', () => {
             let saving = newModelWithCollection.save();
             let syncHandlerStub = sandbox.stub();
 
@@ -653,22 +674,6 @@ describe('Model', () => {
                 assert.ok(syncHandlerStub.calledWithExactly());
               });
           });
-
-          it('does not emit "sync" when the silent option is truthy', () => {
-            let saving = newModelWithCollection.save({silent: true});
-            let syncHandlerStub = sandbox.stub();
-
-            newModelWithCollection.on('sync', syncHandlerStub);
-
-            assert.equal(syncHandlerStub.callCount, 0);
-
-            fetchDeferred.resolve({ok: true, json: sandbox.stub()});
-
-            return saving
-              .then(() => {
-                assert.equal(syncHandlerStub.callCount, 0);
-              });
-          });
         });
 
         describe('old model with no collection', () => {
@@ -676,6 +681,19 @@ describe('Model', () => {
 
           beforeEach(() => {
             oldModelNoCollection = new TestModel({id: 10, a: 1, b: 2});
+            oldModelNoCollection.setAttributes({c: 3});
+          });
+
+          it('resolves when there are no changes', () => {
+            return new TestModel({id: 10, a: 1, b: 2}).save();
+          });
+
+          it('calls fetch when there are no changes and option "force" is true', () => {
+            () => {
+              return new TestModel({id: 10, a: 1, b: 2}).save({force: true});
+            }();
+
+            assert.equal(fakeFetch.callCount, 1);
           });
 
           it('makes a put request with the urlRoot URL', () => {
@@ -689,7 +707,8 @@ describe('Model', () => {
               body: {
                 id: 10,
                 a: 1,
-                b: 2
+                b: 2,
+                c: 3
               },
               headers: {
                 Accept: 'application/json',
@@ -714,17 +733,17 @@ describe('Model', () => {
           it('Sets the previous attributes to the model attributes when the save began', () => {
             let saving = oldModelNoCollection.save();
 
-            oldModelNoCollection.set('a', 3);
+            oldModelNoCollection.setAttributes({'a': 3});
 
             fetchDeferred.resolve({ok: true, json: sandbox.stub()});
 
             return saving
               .then(() => {
-                assert.deepEqual(oldModelNoCollection.previous(), {id: 10, a: 1, b: 2});
+                assert.deepEqual(oldModelNoCollection.previous(), {id: 10, a: 1, b: 2, c: 3});
               });
           });
 
-          it('emits "sync" when the silent option is falsy', () => {
+          it('emits "sync"', () => {
             let saving = oldModelNoCollection.save();
             let syncHandlerStub = sandbox.stub();
 
@@ -740,22 +759,6 @@ describe('Model', () => {
                 assert.ok(syncHandlerStub.calledWithExactly());
               });
           });
-
-          it('does not emit "sync" when the silent option is truthy', () => {
-            let saving = oldModelNoCollection.save({silent: true});
-            let syncHandlerStub = sandbox.stub();
-
-            oldModelNoCollection.on('sync', syncHandlerStub);
-
-            assert.equal(syncHandlerStub.callCount, 0);
-
-            fetchDeferred.resolve({ok: true, json: sandbox.stub()});
-
-            return saving
-              .then(() => {
-                assert.equal(syncHandlerStub.callCount, 0);
-              });
-          });
         });
 
         describe('old model with collection', () => {
@@ -763,6 +766,19 @@ describe('Model', () => {
 
           beforeEach(() => {
             oldModelWithCollection = new Model({id: 10, a: 1, b: 2}, {collection: new TestCollection()});
+            oldModelWithCollection.setAttributes({c: 3});
+          });
+
+          it('resolves when there are no changes', () => {
+            return new Model({id: 10, a: 1, b: 2}, {collection: new TestCollection()}).save();
+          });
+
+          it('calls fetch when there are no changes and option "force" is true', () => {
+            () => {
+              return new TestModel({id: 10, a: 1, b: 2}, {collection: new TestCollection()}).save({force: true});
+            }();
+
+            assert.equal(fakeFetch.callCount, 1);
           });
 
           it('makes a put request with the collection URL', () => {
@@ -776,7 +792,8 @@ describe('Model', () => {
               body: {
                 id: 10,
                 a: 1,
-                b: 2
+                b: 2,
+                c: 3
               },
               headers: {
                 Accept: 'application/json',
@@ -801,17 +818,17 @@ describe('Model', () => {
           it('Sets the previous attributes to the model attributes when the save began', () => {
             let saving = oldModelWithCollection.save();
 
-            oldModelWithCollection.set('a', 3);
+            oldModelWithCollection.setAttributes({'a': 3});
 
             fetchDeferred.resolve({ok: true, json: sandbox.stub()});
 
             return saving
               .then(() => {
-                assert.deepEqual(oldModelWithCollection.previous(), {id: 10, a: 1, b: 2});
+                assert.deepEqual(oldModelWithCollection.previous(), {id: 10, a: 1, b: 2, c: 3});
               });
           });
 
-          it('emits "sync" when the silent option is falsy', () => {
+          it('emits "sync"', () => {
             let saving = oldModelWithCollection.save();
             let syncHandlerStub = sandbox.stub();
 
@@ -825,22 +842,6 @@ describe('Model', () => {
               .then(() => {
                 assert.equal(syncHandlerStub.callCount, 1);
                 assert.ok(syncHandlerStub.calledWithExactly());
-              });
-          });
-
-          it('does not emit "sync" when the silent option is truthy', () => {
-            let saving = oldModelWithCollection.save({silent: true});
-            let syncHandlerStub = sandbox.stub();
-
-            oldModelWithCollection.on('sync', syncHandlerStub);
-
-            assert.equal(syncHandlerStub.callCount, 0);
-
-            fetchDeferred.resolve({ok: true, json: sandbox.stub()});
-
-            return saving
-              .then(() => {
-                assert.equal(syncHandlerStub.callCount, 0);
               });
           });
         });
@@ -865,7 +866,7 @@ describe('Model', () => {
             destroyListener = sandbox.stub();
 
             model = new TestModel({id: 10, a: 1});
-            model.set('b', 2);
+            model.setAttributes({'b': 2});
 
             model.on('destroy', destroyListener);
           });
@@ -1014,340 +1015,110 @@ describe('Model', () => {
               });
 
             });
-
-            describe('silent option is truthy', () => {
-              describe('wait option is truthy', () => {
-                let destroying;
-
-                beforeEach(() => {
-                  destroying = model.destroy({wait: true, silent: true});
-                });
-
-                it('does not immediately remove itself from the collection', () => {
-                  assert.equal(collection.remove.callCount, 0);
-                  assert.equal(model.collection, collection);
-                });
-
-                it('calls fetch with the model URL and delete method', () => {
-                  assert.equal(fakeFetch.callCount, 1);
-                  assert.equal(fakeFetch.args[0][0], '/x/y/z/10');
-                  assert.deepEqual(fakeFetch.args[0][1], {
-                    method: 'delete',
-                    credentials: 'same-origin'
-                  });
-                });
-
-                it('rejects if the fetch response is not ok', done => {
-                  fetchDeferred.resolve({ok: false, status: 123});
-
-                  destroying
-                    .catch(err => {
-                      assert.ok(err instanceof Error);
-                      assert.equal(err.message, 'Unexpected response code from server: 123');
-                      done();
-                    });
-                });
-
-                it('empties the previous attributes of the model (all attributes considered new)', () => {
-                  fetchDeferred.resolve({ok: true});
-
-                  return destroying
-                    .then(() => {
-                      assert.deepEqual(model.previous(), {});
-                    });
-                });
-
-                it('removes itself from the collection after the server responds', () => {
-                  fetchDeferred.resolve({ok: true});
-
-                  return destroying
-                    .then(() => {
-                      assert.equal(collection.remove.callCount, 1);
-                      assert.ok(collection.remove.calledWithExactly(model));
-                    });
-                });
-
-                it('does emits "destroy" after the server responds', () => {
-                  fetchDeferred.resolve({ok: true});
-
-                  return destroying
-                    .then(() => {
-                      assert.equal(destroyListener.callCount, 0);
-                    });
-                });
-              });
-
-              describe('wait option is falsy', () => {
-                let destroying;
-
-                beforeEach(() => {
-                  destroying = model.destroy({wait: false, silent: true});
-                });
-
-                it('immediately removes itself from the collection', () => {
-                  assert.equal(collection.remove.callCount, 1);
-                  assert.ok(collection.remove.calledWithExactly(model));
-                  assert.equal(model.collection, undefined);
-                });
-
-                it('calls fetch with the model URL and delete method', () => {
-                  assert.equal(fakeFetch.callCount, 1);
-                  assert.equal(fakeFetch.args[0][0], '/x/y/z/10');
-                  assert.deepEqual(fakeFetch.args[0][1], {
-                    method: 'delete',
-                    credentials: 'same-origin'
-                  });
-                });
-
-                it('rejects if the fetch response is not ok', done => {
-                  fetchDeferred.resolve({ok: false, status: 123});
-
-                  destroying
-                    .catch(err => {
-                      assert.ok(err instanceof Error);
-                      assert.equal(err.message, 'Unexpected response code from server: 123');
-                      done();
-                    });
-                });
-
-                it('empties the previous attributes of the model (all attributes considered new)', () => {
-                  fetchDeferred.resolve({ok: true});
-
-                  return destroying
-                    .then(() => {
-                      assert.deepEqual(model.previous(), {});
-                    });
-                });
-
-                it('does not remove itself from the collection again after server responds', () => {
-                  fetchDeferred.resolve({ok: true});
-
-                  return destroying
-                    .then(() => {
-                      assert.equal(collection.remove.callCount, 1);
-                    });
-                });
-
-                it('does emits "destroy" after the server responds', () => {
-                  fetchDeferred.resolve({ok: true});
-
-                  return destroying
-                    .then(() => {
-                      assert.equal(destroyListener.callCount, 0);
-                    });
-                });
-              });
-            });
           });
 
           describe('without a collection', () => {
-            describe('silent option is falsy', () => {
-              describe('wait option is truthy', () => {
-                let destroying;
+            describe('wait option is truthy', () => {
+              let destroying;
 
-                beforeEach(() => {
-                  destroying = model.destroy({wait: true});
-                });
+              beforeEach(() => {
+                destroying = model.destroy({wait: true});
+              });
 
-                it('calls fetch with the model URL and delete method', () => {
-                  assert.equal(fakeFetch.callCount, 1);
-                  assert.equal(fakeFetch.args[0][0], '/a/b/c/10');
-                  assert.deepEqual(fakeFetch.args[0][1], {
-                    method: 'delete',
-                    credentials: 'same-origin'
-                  });
-                });
-
-                it('rejects if the fetch response is not ok', done => {
-                  fetchDeferred.resolve({ok: false, status: 123});
-
-                  destroying
-                    .catch(err => {
-                      assert.ok(err instanceof Error);
-                      assert.equal(err.message, 'Unexpected response code from server: 123');
-                      done();
-                    });
-                });
-
-                it('empties the previous attributes of the model (all attributes considered new)', () => {
-                  fetchDeferred.resolve({ok: true});
-
-                  return destroying
-                    .then(() => {
-                      assert.deepEqual(model.previous(), {});
-                    });
-                });
-
-                it('emits "destroy" after the server responds', () => {
-                  fetchDeferred.resolve({ok: true});
-
-                  let destroyListener = sandbox.stub();
-
-                  model.on('destroy', destroyListener);
-
-                  return destroying
-                    .then(() => {
-                      model.removeListener('destroy', destroyListener);
-                      assert.equal(destroyListener.callCount, 1);
-                      assert.ok(destroyListener.calledWithExactly());
-                    });
+              it('calls fetch with the model URL and delete method', () => {
+                assert.equal(fakeFetch.callCount, 1);
+                assert.equal(fakeFetch.args[0][0], '/a/b/c/10');
+                assert.deepEqual(fakeFetch.args[0][1], {
+                  method: 'delete',
+                  credentials: 'same-origin'
                 });
               });
 
-              describe('wait option is falsy', () => {
-                let destroying;
+              it('rejects if the fetch response is not ok', done => {
+                fetchDeferred.resolve({ok: false, status: 123});
 
-                beforeEach(() => {
-                  destroying = model.destroy({wait: false});
-                });
-
-                it('calls fetch with the model URL and delete method', () => {
-                  assert.equal(fakeFetch.callCount, 1);
-                  assert.equal(fakeFetch.args[0][0], '/a/b/c/10');
-                  assert.deepEqual(fakeFetch.args[0][1], {
-                    method: 'delete',
-                    credentials: 'same-origin'
+                destroying
+                  .catch(err => {
+                    assert.ok(err instanceof Error);
+                    assert.equal(err.message, 'Unexpected response code from server: 123');
+                    done();
                   });
-                });
+              });
 
-                it('rejects if the fetch response is not ok', done => {
-                  fetchDeferred.resolve({ok: false, status: 123});
+              it('empties the previous attributes of the model (all attributes considered new)', () => {
+                fetchDeferred.resolve({ok: true});
 
-                  destroying
-                    .catch(err => {
-                      assert.ok(err instanceof Error);
-                      assert.equal(err.message, 'Unexpected response code from server: 123');
-                      done();
-                    });
-                });
+                return destroying
+                  .then(() => {
+                    assert.deepEqual(model.previous(), {});
+                  });
+              });
 
-                it('empties the previous attributes of the model (all attributes considered new)', () => {
-                  fetchDeferred.resolve({ok: true});
+              it('emits "destroy" after the server responds', () => {
+                fetchDeferred.resolve({ok: true});
 
-                  return destroying
-                    .then(() => {
-                      assert.deepEqual(model.previous(), {});
-                    });
-                });
+                let destroyListener = sandbox.stub();
 
-                it('emits "destroy" after the server responds', () => {
-                  fetchDeferred.resolve({ok: true});
+                model.on('destroy', destroyListener);
 
-                  let destroyListener = sandbox.stub();
-
-                  model.on('destroy', destroyListener);
-
-                  return destroying
-                    .then(() => {
-                      model.removeListener('destroy', destroyListener);
-                      assert.equal(destroyListener.callCount, 1);
-                      assert.ok(destroyListener.calledWithExactly());
-                    });
-                });
+                return destroying
+                  .then(() => {
+                    model.removeListener('destroy', destroyListener);
+                    assert.equal(destroyListener.callCount, 1);
+                    assert.ok(destroyListener.calledWithExactly());
+                  });
               });
             });
 
-            describe('silent option is truthy', () => {
-              describe('wait option is truthy', () => {
-                let destroying;
+            describe('wait option is falsy', () => {
+              let destroying;
 
-                beforeEach(() => {
-                  destroying = model.destroy({wait: true, silent: true});
-                });
+              beforeEach(() => {
+                destroying = model.destroy({wait: false});
+              });
 
-                it('calls fetch with the model URL and delete method', () => {
-                  assert.equal(fakeFetch.callCount, 1);
-                  assert.equal(fakeFetch.args[0][0], '/a/b/c/10');
-                  assert.deepEqual(fakeFetch.args[0][1], {
-                    method: 'delete',
-                    credentials: 'same-origin'
-                  });
-                });
-
-                it('rejects if the fetch response is not ok', done => {
-                  fetchDeferred.resolve({ok: false, status: 123});
-
-                  destroying
-                    .catch(err => {
-                      assert.ok(err instanceof Error);
-                      assert.equal(err.message, 'Unexpected response code from server: 123');
-                      done();
-                    });
-                });
-
-                it('empties the previous attributes of the model (all attributes considered new)', () => {
-                  fetchDeferred.resolve({ok: true});
-
-                  return destroying
-                    .then(() => {
-                      assert.deepEqual(model.previous(), {});
-                    });
-                });
-
-                it('does emits "destroy" after the server responds', () => {
-                  fetchDeferred.resolve({ok: true});
-
-                  let destroyListener = sandbox.stub();
-
-                  model.on('destroy', destroyListener);
-
-                  return destroying
-                    .then(() => {
-                      model.removeListener('destroy', destroyListener);
-                      assert.equal(destroyListener.callCount, 0);
-                    });
+              it('calls fetch with the model URL and delete method', () => {
+                assert.equal(fakeFetch.callCount, 1);
+                assert.equal(fakeFetch.args[0][0], '/a/b/c/10');
+                assert.deepEqual(fakeFetch.args[0][1], {
+                  method: 'delete',
+                  credentials: 'same-origin'
                 });
               });
 
-              describe('wait option is falsy', () => {
-                let destroying;
+              it('rejects if the fetch response is not ok', done => {
+                fetchDeferred.resolve({ok: false, status: 123});
 
-                beforeEach(() => {
-                  destroying = model.destroy({wait: false, silent: true});
-                });
-
-                it('calls fetch with the model URL and delete method', () => {
-                  assert.equal(fakeFetch.callCount, 1);
-                  assert.equal(fakeFetch.args[0][0], '/a/b/c/10');
-                  assert.deepEqual(fakeFetch.args[0][1], {
-                    method: 'delete',
-                    credentials: 'same-origin'
+                destroying
+                  .catch(err => {
+                    assert.ok(err instanceof Error);
+                    assert.equal(err.message, 'Unexpected response code from server: 123');
+                    done();
                   });
-                });
+              });
 
-                it('rejects if the fetch response is not ok', done => {
-                  fetchDeferred.resolve({ok: false, status: 123});
+              it('empties the previous attributes of the model (all attributes considered new)', () => {
+                fetchDeferred.resolve({ok: true});
 
-                  destroying
-                    .catch(err => {
-                      assert.ok(err instanceof Error);
-                      assert.equal(err.message, 'Unexpected response code from server: 123');
-                      done();
-                    });
-                });
+                return destroying
+                  .then(() => {
+                    assert.deepEqual(model.previous(), {});
+                  });
+              });
 
-                it('empties the previous attributes of the model (all attributes considered new)', () => {
-                  fetchDeferred.resolve({ok: true});
+              it('emits "destroy" after the server responds', () => {
+                fetchDeferred.resolve({ok: true});
 
-                  return destroying
-                    .then(() => {
-                      assert.deepEqual(model.previous(), {});
-                    });
-                });
+                let destroyListener = sandbox.stub();
 
-                it('does emits "destroy" after the server responds', () => {
-                  fetchDeferred.resolve({ok: true});
+                model.on('destroy', destroyListener);
 
-                  let destroyListener = sandbox.stub();
-
-                  model.on('destroy', destroyListener);
-
-                  return destroying
-                    .then(() => {
-                      model.removeListener('destroy', destroyListener);
-                      assert.equal(destroyListener.callCount, 0);
-                    });
-                });
+                return destroying
+                  .then(() => {
+                    model.removeListener('destroy', destroyListener);
+                    assert.equal(destroyListener.callCount, 1);
+                    assert.ok(destroyListener.calledWithExactly());
+                  });
               });
             });
           });
@@ -1360,7 +1131,7 @@ describe('Model', () => {
             destroyListener = sandbox.stub();
 
             model = new TestModel({a: 1});
-            model.set('b', 2);
+            model.setAttributes({'b': 2});
 
             model.on('destroy', destroyListener);
           });
@@ -1383,277 +1154,137 @@ describe('Model', () => {
               model.collection = collection;
             });
 
-            describe('silent option is falsy', () => {
-              describe('wait option is truthy', () => {
-                let destroying;
+            describe('wait option is truthy', () => {
+              let destroying;
 
-                beforeEach(() => {
-                  destroying = model.destroy({wait: true});
-                });
-
-                it('immediately removes itself from the collection', () => {
-                  assert.equal(collection.remove.callCount, 1);
-                  assert.equal(model.collection, undefined);
-                  assert.ok(collection.remove.calledWithExactly(model));
-                });
-
-                it('empties the previous attributes of the model (all attributes considered new)', () => {
-                  return destroying
-                    .then(() => {
-                      assert.deepEqual(model.previous(), {});
-                    });
-                });
-
-                it('removes itself from the collection', () => {
-                  return destroying
-                    .then(() => {
-                      assert.equal(collection.remove.callCount, 1);
-                      assert.ok(collection.remove.calledWithExactly(model));
-                    });
-                });
-
-                it('emits "destroy"', () => {
-                  return destroying
-                    .then(() => {
-                      model.removeListener('destroy', destroyListener);
-                      assert.equal(destroyListener.callCount, 1);
-                      assert.ok(destroyListener.calledWithExactly());
-                    });
-                });
-
-                it('does not call fetch', () => {
-                  assert.equal(fakeFetch.callCount, 0);
-                });
+              beforeEach(() => {
+                destroying = model.destroy({wait: true});
               });
 
-              describe('wait option is falsy', () => {
-                let destroying;
+              it('immediately removes itself from the collection', () => {
+                assert.equal(collection.remove.callCount, 1);
+                assert.equal(model.collection, undefined);
+                assert.ok(collection.remove.calledWithExactly(model));
+              });
 
-                beforeEach(() => {
-                  destroying = model.destroy({wait: false});
-                });
+              it('empties the previous attributes of the model (all attributes considered new)', () => {
+                return destroying
+                  .then(() => {
+                    assert.deepEqual(model.previous(), {});
+                  });
+              });
 
-                it('immediately removes itself from the collection', () => {
-                  assert.equal(collection.remove.callCount, 1);
-                  assert.ok(collection.remove.calledWithExactly(model));
-                  assert.equal(model.collection, undefined);
-                });
+              it('removes itself from the collection', () => {
+                return destroying
+                  .then(() => {
+                    assert.equal(collection.remove.callCount, 1);
+                    assert.ok(collection.remove.calledWithExactly(model));
+                  });
+              });
 
-                it('empties the previous attributes of the model (all attributes considered new)', () => {
-                  return destroying
-                    .then(() => {
-                      assert.deepEqual(model.previous(), {});
-                    });
-                });
+              it('emits "destroy"', () => {
+                return destroying
+                  .then(() => {
+                    model.removeListener('destroy', destroyListener);
+                    assert.equal(destroyListener.callCount, 1);
+                    assert.ok(destroyListener.calledWithExactly());
+                  });
+              });
 
-                it('emits "destroy"', () => {
-                  return destroying
-                    .then(() => {
-                      model.removeListener('destroy', destroyListener);
-                      assert.equal(destroyListener.callCount, 1);
-                      assert.ok(destroyListener.calledWithExactly());
-                    });
-                });
-
-                it('does not call fetch', () => {
-                  assert.equal(fakeFetch.callCount, 0);
-                });
+              it('does not call fetch', () => {
+                assert.equal(fakeFetch.callCount, 0);
               });
             });
 
-            describe('silent option is truthy', () => {
-              describe('wait option is truthy', () => {
-                let destroying;
+            describe('wait option is falsy', () => {
+              let destroying;
 
-                beforeEach(() => {
-                  destroying = model.destroy({wait: true, silent: true});
-                });
-
-                it('immediately removes itself from the collection', () => {
-                  assert.equal(collection.remove.callCount, 1);
-                  assert.ok(collection.remove.calledWithExactly(model));
-                  assert.equal(model.collection, undefined);
-                });
-
-                it('empties the previous attributes of the model (all attributes considered new)', () => {
-                  return destroying
-                    .then(() => {
-                      assert.deepEqual(model.previous(), {});
-                    });
-                });
-
-                it('removes itself from the collection', () => {
-                  return destroying
-                    .then(() => {
-                      assert.equal(collection.remove.callCount, 1);
-                      assert.ok(collection.remove.calledWithExactly(model));
-                    });
-                });
-
-                it('does not emit "destroy"', () => {
-                  return destroying
-                    .then(() => {
-                      model.removeListener('destroy', destroyListener);
-                      assert.equal(destroyListener.callCount, 0);
-                    });
-                });
-
-                it('does not call fetch', () => {
-                  assert.equal(fakeFetch.callCount, 0);
-                });
+              beforeEach(() => {
+                destroying = model.destroy({wait: false});
               });
 
-              describe('wait option is falsy', () => {
-                let destroying;
+              it('immediately removes itself from the collection', () => {
+                assert.equal(collection.remove.callCount, 1);
+                assert.ok(collection.remove.calledWithExactly(model));
+                assert.equal(model.collection, undefined);
+              });
 
-                beforeEach(() => {
-                  destroying = model.destroy({wait: false, silent: true});
-                });
+              it('empties the previous attributes of the model (all attributes considered new)', () => {
+                return destroying
+                  .then(() => {
+                    assert.deepEqual(model.previous(), {});
+                  });
+              });
 
-                it('immediately removes itself from the collection', () => {
-                  assert.equal(collection.remove.callCount, 1);
-                  assert.ok(collection.remove.calledWithExactly(model));
-                  assert.equal(model.collection, undefined);
-                });
+              it('emits "destroy"', () => {
+                return destroying
+                  .then(() => {
+                    model.removeListener('destroy', destroyListener);
+                    assert.equal(destroyListener.callCount, 1);
+                    assert.ok(destroyListener.calledWithExactly());
+                  });
+              });
 
-                it('empties the previous attributes of the model (all attributes considered new)', () => {
-                  return destroying
-                    .then(() => {
-                      assert.deepEqual(model.previous(), {});
-                    });
-                });
-
-                it('does not emit "destroy"', () => {
-                  return destroying
-                    .then(() => {
-                      model.removeListener('destroy', destroyListener);
-                      assert.equal(destroyListener.callCount, 0);
-                    });
-                });
-
-                it('does not call fetch', () => {
-                  assert.equal(fakeFetch.callCount, 0);
-                });
+              it('does not call fetch', () => {
+                assert.equal(fakeFetch.callCount, 0);
               });
             });
           });
 
           describe('without a collection', () => {
-            describe('silent option is falsy', () => {
-              describe('wait option is truthy', () => {
-                let destroying;
+            describe('wait option is truthy', () => {
+              let destroying;
 
-                beforeEach(() => {
-                  destroying = model.destroy({wait: true});
-                });
-
-                it('empties the previous attributes of the model (all attributes considered new)', () => {
-                  return destroying
-                    .then(() => {
-                      assert.deepEqual(model.previous(), {});
-                    });
-                });
-
-                it('emits "destroy"', () => {
-                  return destroying
-                    .then(() => {
-                      model.removeListener('destroy', destroyListener);
-                      assert.equal(destroyListener.callCount, 1);
-                      assert.ok(destroyListener.calledWithExactly());
-                    });
-                });
-
-                it('does not call fetch', () => {
-                  assert.equal(fakeFetch.callCount, 0);
-                });
+              beforeEach(() => {
+                destroying = model.destroy({wait: true});
               });
 
-              describe('wait option is falsy', () => {
-                let destroying;
+              it('empties the previous attributes of the model (all attributes considered new)', () => {
+                return destroying
+                  .then(() => {
+                    assert.deepEqual(model.previous(), {});
+                  });
+              });
 
-                beforeEach(() => {
-                  destroying = model.destroy({wait: false});
-                });
+              it('emits "destroy"', () => {
+                return destroying
+                  .then(() => {
+                    model.removeListener('destroy', destroyListener);
+                    assert.equal(destroyListener.callCount, 1);
+                    assert.ok(destroyListener.calledWithExactly());
+                  });
+              });
 
-                it('empties the previous attributes of the model (all attributes considered new)', () => {
-                  return destroying
-                    .then(() => {
-                      assert.deepEqual(model.previous(), {});
-                    });
-                });
-
-                it('emits "destroy"', () => {
-                  return destroying
-                    .then(() => {
-                      model.removeListener('destroy', destroyListener);
-                      assert.equal(destroyListener.callCount, 1);
-                      assert.ok(destroyListener.calledWithExactly());
-                    });
-                });
-
-                it('does not call fetch', () => {
-                  assert.equal(fakeFetch.callCount, 0);
-                });
+              it('does not call fetch', () => {
+                assert.equal(fakeFetch.callCount, 0);
               });
             });
 
-            describe('silent option is truthy', () => {
-              describe('wait option is truthy', () => {
-                let destroying;
+            describe('wait option is falsy', () => {
+              let destroying;
 
-                beforeEach(() => {
-                  destroying = model.destroy({wait: true, silent: true});
-                });
-
-                it('empties the previous attributes of the model (all attributes considered new)', () => {
-                  return destroying
-                    .then(() => {
-                      assert.deepEqual(model.previous(), {});
-                    });
-                });
-
-                it('does not emit "destroy"', () => {
-                  return destroying
-                    .then(() => {
-                      model.removeListener('destroy', destroyListener);
-                      assert.equal(destroyListener.callCount, 0);
-                    });
-                });
-
-                it('does not call fetch', () => {
-                  assert.equal(fakeFetch.callCount, 0);
-                });
+              beforeEach(() => {
+                destroying = model.destroy({wait: false});
               });
 
-              describe('wait option is falsy', () => {
-                let destroying;
+              it('empties the previous attributes of the model (all attributes considered new)', () => {
+                return destroying
+                  .then(() => {
+                    assert.deepEqual(model.previous(), {});
+                  });
+              });
 
-                beforeEach(() => {
-                  destroying = model.destroy({wait: false, silent: true});
-                });
+              it('emits "destroy"', () => {
+                return destroying
+                  .then(() => {
+                    model.removeListener('destroy', destroyListener);
+                    assert.equal(destroyListener.callCount, 1);
+                    assert.ok(destroyListener.calledWithExactly());
+                  });
+              });
 
-                afterEach(() => {
-                  model.removeListener('destroy', destroyListener);
-                });
-
-                it('empties the previous attributes of the model (all attributes considered new)', () => {
-                  return destroying
-                    .then(() => {
-                      assert.deepEqual(model.previous(), {});
-                    });
-                });
-
-                it('does not emit "destroy"', () => {
-                  return destroying
-                    .then(() => {
-                      model.removeListener('destroy', destroyListener);
-                      assert.equal(destroyListener.callCount, 0);
-                    });
-                });
-
-                it('does not call fetch', () => {
-                  assert.equal(fakeFetch.callCount, 0);
-                });
+              it('does not call fetch', () => {
+                assert.equal(fakeFetch.callCount, 0);
               });
             });
           });
