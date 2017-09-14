@@ -1,5 +1,7 @@
 # vertebrate
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/qubyte/vertebrate.svg)](https://greenkeeper.io/)
+
 Inspired by Backbone, crafted in ES6.
 
 This library currently houses only a minimalist event emitter implementation.
